@@ -11,9 +11,9 @@
  */
 
 
-#include <CC2500.h>
-#include <ColourConversion.h>
-#include <LivingColors.h>
+#include "LivingColors/CC2500.h"
+#include "LivingColors/ColourConversion.h"
+#include "LivingColors/LivingColors.h"
 
 // Set configuration options for LED type, pins, WiFi, and MQTT in the following file:
 #include "config.h"
@@ -25,9 +25,6 @@
 
 // http://pubsubclient.knolleary.net/
 #include <PubSubClient.h>
-
-//#define BufSize 256
-//char SerBuf[BufSize];
 
 #ifdef ESP8266
 #define lcMOSI   13    // D7 SPI master data out pin 11 
