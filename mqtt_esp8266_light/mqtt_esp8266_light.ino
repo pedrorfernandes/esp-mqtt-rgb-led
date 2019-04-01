@@ -10,6 +10,11 @@
  * See https://github.com/corbanmailloux/esp-mqtt-rgb-led for more information.
  */
 
+
+#include <CC2500.h>
+#include <ColourConversion.h>
+#include <LivingColors.h>
+
 // Set configuration options for LED type, pins, WiFi, and MQTT in the following file:
 #include "config.h"
 
@@ -20,6 +25,25 @@
 
 // http://pubsubclient.knolleary.net/
 #include <PubSubClient.h>
+
+//#define BufSize 256
+//char SerBuf[BufSize];
+
+#ifdef ESP8266
+#define lcMOSI   13    // D7 SPI master data out pin 11 
+#define lcMISO   12    // D6 SPI master data in pin  12
+#define lcSCK    14    // D5 SPI clock pin           13
+#define lcCS     15    // D2 SPI slave select pin    10
+#else
+#define lcMOSI   11    // SPI master data out pin
+#define lcMISO   12    // SPI master data in pin
+#define lcSCK    13    // SPI clock pin
+#define lcCS     10    // SPI slave select pin
+#endif
+LivingColors livcol(lcCS, lcSCK, lcMOSI, lcMISO);
+
+unsigned char lamp1[9] = { 0xE7,0x52 ,0xD3 ,0x52 ,0x99 ,0x28 ,0x8F ,0xB4 ,0x11  }; // branca
+unsigned char lamp2[9] = { 0x43, 0xB7, 0xBA, 0x14, 0x99, 0x28, 0x8F, 0xB4, 0x11 }; // preta
 
 const bool rgb = (CONFIG_STRIP == RGB) || (CONFIG_STRIP == RGBW);
 const bool includeWhite = (CONFIG_STRIP == BRIGHTNESS) || (CONFIG_STRIP == RGBW);
@@ -40,6 +64,7 @@ byte realBlue = 0;
 byte realWhite = 0;
 
 bool stateOn = false;
+bool previousStateOn = false;
 
 // Globals for fade/transitions
 bool startFade = false;
@@ -75,44 +100,32 @@ const byte colors[][4] = {
   {255, 255, 0, 0}
 };
 const int numColors = 7;
+int selectedLamp = 0;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
-
 void setup() {
-  if (rgb) {
-    pinMode(CONFIG_PIN_RED, OUTPUT);
-    pinMode(CONFIG_PIN_GREEN, OUTPUT);
-    pinMode(CONFIG_PIN_BLUE, OUTPUT);
-  }
-  if (includeWhite) {
-    pinMode(CONFIG_PIN_WHITE, OUTPUT);
-  }
+  
 
-  // Set the LED_BUILTIN based on the CONFIG_LED_BUILTIN_MODE
-  switch (CONFIG_LED_BUILTIN_MODE) {
-    case 0:
-      pinMode(LED_BUILTIN, OUTPUT);
-      digitalWrite(LED_BUILTIN, LOW);
-      break;
-    case 1:
-      pinMode(LED_BUILTIN, OUTPUT);
-      digitalWrite(LED_BUILTIN, HIGH);
-      break;
-    default: // Other options (like -1) are ignored.
-      break;
-  }
-
-  analogWriteRange(255);
-
-  if (CONFIG_DEBUG) {
+  // if (CONFIG_DEBUG) {
     Serial.begin(115200);
-  }
+    Serial.println("serial init");
+  // }
 
-  setup_wifi();
-  client.setServer(CONFIG_MQTT_HOST, CONFIG_MQTT_PORT);
-  client.setCallback(callback);
+  livcol.init();
+  livcol.clearLamps();
+  livcol.addLamp(lamp1);
+  livcol.addLamp(lamp2);
+  livcol.turnLampOnRGB(0, 0, 0, 255);
+  livcol.turnLampOnRGB(0, 0, 255, 0);
+  livcol.turnLampOnRGB(0, 255, 0, 0);
+  Serial.println("lamps on");
+  
+   setup_wifi();
+   client.setServer(CONFIG_MQTT_HOST, CONFIG_MQTT_PORT);
+   client.setCallback(callback);
 }
+
 
 void setup_wifi() {
   delay(10);
@@ -339,6 +352,7 @@ void sendState() {
   root.printTo(buffer, sizeof(buffer));
 
   client.publish(CONFIG_MQTT_TOPIC_STATE, buffer, true);
+  Serial.println(buffer);
 }
 
 void reconnect() {
@@ -359,6 +373,7 @@ void reconnect() {
   }
 }
 
+
 void setColor(int inR, int inG, int inB, int inW) {
   if (CONFIG_INVERT_LED_LOGIC) {
     inR = (255 - inR);
@@ -368,13 +383,19 @@ void setColor(int inR, int inG, int inB, int inW) {
   }
 
   if (rgb) {
-    analogWrite(CONFIG_PIN_RED, inR);
-    analogWrite(CONFIG_PIN_GREEN, inG);
-    analogWrite(CONFIG_PIN_BLUE, inB);
+    if (inR == 0 && inG == 0 && inB == 0) {
+      livcol.turnLampOff(selectedLamp);
+      previousStateOn = false;
+    } else if (previousStateOn) {
+      livcol.setLampColourRGB(selectedLamp, inR, inG, inB);
+    } else {
+      livcol.turnLampOnRGB(selectedLamp, inR, inG, inB);
+      previousStateOn = true;
+    }
   }
 
   if (includeWhite) {
-    analogWrite(CONFIG_PIN_WHITE, inW);
+    // analogWrite(CONFIG_PIN_WHITE, inW);
   }
 
   if (CONFIG_DEBUG) {
@@ -407,6 +428,10 @@ void loop() {
 
   client.loop();
 
+  lampLoop();
+}
+
+void lampLoop() {
   if (flash) {
     if (startFlash) {
       startFlash = false;
