@@ -11,9 +11,9 @@
  */
 
 
-#include "LivingColors/CC2500.h"
-#include "LivingColors/ColourConversion.h"
-#include "LivingColors/LivingColors.h"
+#include "src/LivingColors/CC2500.h"
+#include "src/LivingColors/ColourConversion.h"
+#include "src/LivingColors/LivingColors.h"
 
 // Set configuration options for LED type, pins, WiFi, and MQTT in the following file:
 #include "config.h"
@@ -102,11 +102,9 @@ int selectedLamp = 0;
 WiFiClient espClient;
 PubSubClient client(espClient);
 void setup() {
-  
-
   // if (CONFIG_DEBUG) {
     Serial.begin(115200);
-    Serial.println("serial init");
+    Serial.println("serial init carai");
   // }
 
   livcol.init();
@@ -114,8 +112,6 @@ void setup() {
   livcol.addLamp(lamp1);
   livcol.addLamp(lamp2);
   livcol.turnLampOnRGB(0, 0, 0, 255);
-  livcol.turnLampOnRGB(0, 0, 255, 0);
-  livcol.turnLampOnRGB(0, 255, 0, 0);
   Serial.println("lamps on");
   
    setup_wifi();

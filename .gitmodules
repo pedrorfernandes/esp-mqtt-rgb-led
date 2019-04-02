@@ -1,3 +1,3 @@
 [submodule "LivingColors"]
-	path = LivingColors
+	path = src/LivingColors
 	url = https://github.com/pedrorfernandes/LivingColors
