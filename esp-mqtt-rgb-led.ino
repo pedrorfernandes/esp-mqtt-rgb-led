@@ -10,7 +10,6 @@
  * See https://github.com/corbanmailloux/esp-mqtt-rgb-led for more information.
  */
 
-
 #include "src/LivingColors/CC2500.h"
 #include "src/LivingColors/ColourConversion.h"
 #include "src/LivingColors/LivingColors.h"
@@ -27,20 +26,20 @@
 #include <PubSubClient.h>
 
 #ifdef ESP8266
-#define lcMOSI   13    // D7 SPI master data out pin 11 
-#define lcMISO   12    // D6 SPI master data in pin  12
-#define lcSCK    14    // D5 SPI clock pin           13
-#define lcCS     15    // D2 SPI slave select pin    10
+#define lcMOSI 13 // D7 SPI master data out pin 11
+#define lcMISO 12 // D6 SPI master data in pin  12
+#define lcSCK 14  // D5 SPI clock pin           13
+#define lcCS 15   // D2 SPI slave select pin    10
 #else
-#define lcMOSI   11    // SPI master data out pin
-#define lcMISO   12    // SPI master data in pin
-#define lcSCK    13    // SPI clock pin
-#define lcCS     10    // SPI slave select pin
+#define lcMOSI 11 // SPI master data out pin
+#define lcMISO 12 // SPI master data in pin
+#define lcSCK 13  // SPI clock pin
+#define lcCS 10   // SPI slave select pin
 #endif
 LivingColors livcol(lcCS, lcSCK, lcMOSI, lcMISO);
 
-unsigned char lamp1[9] = { 0xE7,0x52 ,0xD3 ,0x52 ,0x99 ,0x28 ,0x8F ,0xB4 ,0x11  }; // branca
-unsigned char lamp2[9] = { 0x43, 0xB7, 0xBA, 0x14, 0x99, 0x28, 0x8F, 0xB4, 0x11 }; // preta
+unsigned char lamp1[9] = {0xE7, 0x52, 0xD3, 0x52, 0x99, 0x28, 0x8F, 0xB4, 0x11}; // branca
+unsigned char lamp2[9] = {0x43, 0xB7, 0xBA, 0x14, 0x99, 0x28, 0x8F, 0xB4, 0x11}; // preta
 
 const bool rgb = (CONFIG_STRIP == RGB) || (CONFIG_STRIP == RGBW);
 const bool includeWhite = (CONFIG_STRIP == BRIGHTNESS) || (CONFIG_STRIP == RGBW);
@@ -88,23 +87,23 @@ bool colorfade = false;
 int currentColor = 0;
 // {red, grn, blu, wht}
 const byte colors[][4] = {
-  {255, 0, 0, 0},
-  {0, 255, 0, 0},
-  {0, 0, 255, 0},
-  {255, 80, 0, 0},
-  {163, 0, 255, 0},
-  {0, 255, 255, 0},
-  {255, 255, 0, 0}
-};
+    {255, 0, 0, 0},
+    {0, 255, 0, 0},
+    {0, 0, 255, 0},
+    {255, 80, 0, 0},
+    {163, 0, 255, 0},
+    {0, 255, 255, 0},
+    {255, 255, 0, 0}};
 const int numColors = 7;
 int selectedLamp = 0;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
-void setup() {
+void setup()
+{
   // if (CONFIG_DEBUG) {
-    Serial.begin(115200);
-    Serial.println("serial init carai");
+  Serial.begin(115200);
+  Serial.println("serial init");
   // }
 
   livcol.init();
@@ -113,14 +112,14 @@ void setup() {
   livcol.addLamp(lamp2);
   livcol.turnLampOnRGB(0, 0, 0, 255);
   Serial.println("lamps on");
-  
-   setup_wifi();
-   client.setServer(CONFIG_MQTT_HOST, CONFIG_MQTT_PORT);
-   client.setCallback(callback);
+
+  setup_wifi();
+  client.setServer(CONFIG_MQTT_HOST, CONFIG_MQTT_PORT);
+  client.setCallback(callback);
 }
 
-
-void setup_wifi() {
+void setup_wifi()
+{
   delay(10);
   // We start by connecting to a WiFi network
   Serial.println();
@@ -130,7 +129,8 @@ void setup_wifi() {
   WiFi.mode(WIFI_STA); // Disable the built-in WiFi access point.
   WiFi.begin(CONFIG_WIFI_SSID, CONFIG_WIFI_PASS);
 
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED)
+  {
     delay(500);
     Serial.print(".");
   }
@@ -141,7 +141,7 @@ void setup_wifi() {
   Serial.println(WiFi.localIP());
 }
 
-  /*
+/*
   SAMPLE PAYLOAD (BRIGHTNESS):
     {
       "brightness": 120,
@@ -165,30 +165,35 @@ void setup_wifi() {
       "effect": "colorfade_fast"
     }
   */
-void callback(char* topic, byte* payload, unsigned int length) {
+void callback(char *topic, byte *payload, unsigned int length)
+{
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.print("] ");
 
   char message[length + 1];
-  for (int i = 0; i < length; i++) {
+  for (int i = 0; i < length; i++)
+  {
     message[i] = (char)payload[i];
   }
   message[length] = '\0';
   Serial.println(message);
 
-  if (!processJson(message)) {
+  if (!processJson(message))
+  {
     return;
   }
 
-  if (stateOn) {
+  if (stateOn)
+  {
     // Update lights
     realRed = map(red, 0, 255, 0, brightness);
     realGreen = map(green, 0, 255, 0, brightness);
     realBlue = map(blue, 0, 255, 0, brightness);
     realWhite = map(white, 0, 255, 0, brightness);
   }
-  else {
+  else
+  {
     realRed = 0;
     realGreen = 0;
     realBlue = 0;
@@ -201,58 +206,72 @@ void callback(char* topic, byte* payload, unsigned int length) {
   sendState();
 }
 
-bool processJson(char* message) {
+bool processJson(char *message)
+{
   StaticJsonBuffer<BUFFER_SIZE> jsonBuffer;
 
-  JsonObject& root = jsonBuffer.parseObject(message);
+  JsonObject &root = jsonBuffer.parseObject(message);
 
-  if (!root.success()) {
+  if (!root.success())
+  {
     Serial.println("parseObject() failed");
     return false;
   }
 
-  if (root.containsKey("state")) {
-    if (strcmp(root["state"], CONFIG_MQTT_PAYLOAD_ON) == 0) {
+  if (root.containsKey("state"))
+  {
+    if (strcmp(root["state"], CONFIG_MQTT_PAYLOAD_ON) == 0)
+    {
       stateOn = true;
     }
-    else if (strcmp(root["state"], CONFIG_MQTT_PAYLOAD_OFF) == 0) {
+    else if (strcmp(root["state"], CONFIG_MQTT_PAYLOAD_OFF) == 0)
+    {
       stateOn = false;
     }
   }
 
   // If "flash" is included, treat RGB and brightness differently
   if (root.containsKey("flash") ||
-       (root.containsKey("effect") && strcmp(root["effect"], "flash") == 0)) {
+      (root.containsKey("effect") && strcmp(root["effect"], "flash") == 0))
+  {
 
-    if (root.containsKey("flash")) {
+    if (root.containsKey("flash"))
+    {
       flashLength = (int)root["flash"] * 1000;
     }
-    else {
+    else
+    {
       flashLength = CONFIG_DEFAULT_FLASH_LENGTH * 1000;
     }
 
-    if (root.containsKey("brightness")) {
+    if (root.containsKey("brightness"))
+    {
       flashBrightness = root["brightness"];
     }
-    else {
+    else
+    {
       flashBrightness = brightness;
     }
 
-    if (rgb && root.containsKey("color")) {
+    if (rgb && root.containsKey("color"))
+    {
       flashRed = root["color"]["r"];
       flashGreen = root["color"]["g"];
       flashBlue = root["color"]["b"];
     }
-    else {
+    else
+    {
       flashRed = red;
       flashGreen = green;
       flashBlue = blue;
     }
 
-    if (includeWhite && root.containsKey("white_value")) {
+    if (includeWhite && root.containsKey("white_value"))
+    {
       flashWhite = root["white_value"];
     }
-    else {
+    else
+    {
       flashWhite = white;
     }
 
@@ -265,44 +284,54 @@ bool processJson(char* message) {
     startFlash = true;
   }
   else if (rgb && root.containsKey("effect") &&
-      (strcmp(root["effect"], "colorfade_slow") == 0 || strcmp(root["effect"], "colorfade_fast") == 0)) {
+           (strcmp(root["effect"], "colorfade_slow") == 0 || strcmp(root["effect"], "colorfade_fast") == 0))
+  {
     flash = false;
     colorfade = true;
     currentColor = 0;
-    if (strcmp(root["effect"], "colorfade_slow") == 0) {
+    if (strcmp(root["effect"], "colorfade_slow") == 0)
+    {
       transitionTime = CONFIG_COLORFADE_TIME_SLOW;
     }
-    else {
+    else
+    {
       transitionTime = CONFIG_COLORFADE_TIME_FAST;
     }
   }
-  else if (colorfade && !root.containsKey("color") && root.containsKey("brightness")) {
+  else if (colorfade && !root.containsKey("color") && root.containsKey("brightness"))
+  {
     // Adjust brightness during colorfade
     // (will be applied when fading to the next color)
     brightness = root["brightness"];
   }
-  else { // No effect
+  else
+  { // No effect
     flash = false;
     colorfade = false;
 
-    if (rgb && root.containsKey("color")) {
+    if (rgb && root.containsKey("color"))
+    {
       red = root["color"]["r"];
       green = root["color"]["g"];
       blue = root["color"]["b"];
     }
 
-    if (includeWhite && root.containsKey("white_value")) {
+    if (includeWhite && root.containsKey("white_value"))
+    {
       white = root["white_value"];
     }
 
-    if (root.containsKey("brightness")) {
+    if (root.containsKey("brightness"))
+    {
       brightness = root["brightness"];
     }
 
-    if (root.containsKey("transition")) {
+    if (root.containsKey("transition"))
+    {
       transitionTime = root["transition"];
     }
-    else {
+    else
+    {
       transitionTime = CONFIG_DEFAULT_TRANSITION_TIME;
     }
   }
@@ -310,14 +339,16 @@ bool processJson(char* message) {
   return true;
 }
 
-void sendState() {
+void sendState()
+{
   StaticJsonBuffer<BUFFER_SIZE> jsonBuffer;
 
-  JsonObject& root = jsonBuffer.createObject();
+  JsonObject &root = jsonBuffer.createObject();
 
   root["state"] = (stateOn) ? CONFIG_MQTT_PAYLOAD_ON : CONFIG_MQTT_PAYLOAD_OFF;
-  if (rgb) {
-    JsonObject& color = root.createNestedObject("color");
+  if (rgb)
+  {
+    JsonObject &color = root.createNestedObject("color");
     color["r"] = red;
     color["g"] = green;
     color["b"] = blue;
@@ -325,19 +356,24 @@ void sendState() {
 
   root["brightness"] = brightness;
 
-  if (includeWhite) {
+  if (includeWhite)
+  {
     root["white_value"] = white;
   }
 
-  if (rgb && colorfade) {
-    if (transitionTime == CONFIG_COLORFADE_TIME_SLOW) {
+  if (rgb && colorfade)
+  {
+    if (transitionTime == CONFIG_COLORFADE_TIME_SLOW)
+    {
       root["effect"] = "colorfade_slow";
     }
-    else {
+    else
+    {
       root["effect"] = "colorfade_fast";
     }
   }
-  else {
+  else
+  {
     root["effect"] = "null";
   }
 
@@ -348,15 +384,20 @@ void sendState() {
   Serial.println(buffer);
 }
 
-void reconnect() {
+void reconnect()
+{
   // Loop until we're reconnected
-  while (!client.connected()) {
+  while (!client.connected())
+  {
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect
-    if (client.connect(CONFIG_MQTT_CLIENT_ID, CONFIG_MQTT_USER, CONFIG_MQTT_PASS)) {
+    if (client.connect(CONFIG_MQTT_CLIENT_ID, CONFIG_MQTT_USER, CONFIG_MQTT_PASS))
+    {
       Serial.println("connected");
       client.subscribe(CONFIG_MQTT_TOPIC_SET);
-    } else {
+    }
+    else
+    {
       Serial.print("failed, rc=");
       Serial.print(client.state());
       Serial.println(" try again in 5 seconds");
@@ -366,34 +407,44 @@ void reconnect() {
   }
 }
 
-
-void setColor(int inR, int inG, int inB, int inW) {
-  if (CONFIG_INVERT_LED_LOGIC) {
+void setColor(int inR, int inG, int inB, int inW)
+{
+  if (CONFIG_INVERT_LED_LOGIC)
+  {
     inR = (255 - inR);
     inG = (255 - inG);
     inB = (255 - inB);
     inW = (255 - inW);
   }
 
-  if (rgb) {
-    if (inR == 0 && inG == 0 && inB == 0) {
+  if (rgb)
+  {
+    if (inR == 0 && inG == 0 && inB == 0)
+    {
       livcol.turnLampOff(selectedLamp);
       previousStateOn = false;
-    } else if (previousStateOn) {
+    }
+    else if (previousStateOn)
+    {
       livcol.setLampColourRGB(selectedLamp, inR, inG, inB);
-    } else {
+    }
+    else
+    {
       livcol.turnLampOnRGB(selectedLamp, inR, inG, inB);
       previousStateOn = true;
     }
   }
 
-  if (includeWhite) {
+  if (includeWhite)
+  {
     // analogWrite(CONFIG_PIN_WHITE, inW);
   }
 
-  if (CONFIG_DEBUG) {
+  if (CONFIG_DEBUG)
+  {
     Serial.print("Setting LEDs: {");
-    if (rgb) {
+    if (rgb)
+    {
       Serial.print("r: ");
       Serial.print(inR);
       Serial.print(" , g: ");
@@ -402,8 +453,10 @@ void setColor(int inR, int inG, int inB, int inW) {
       Serial.print(inB);
     }
 
-    if (includeWhite) {
-      if (rgb) {
+    if (includeWhite)
+    {
+      if (rgb)
+      {
         Serial.print(", ");
       }
       Serial.print("w: ");
@@ -414,8 +467,10 @@ void setColor(int inR, int inG, int inB, int inW) {
   }
 }
 
-void loop() {
-  if (!client.connected()) {
+void loop()
+{
+  if (!client.connected())
+  {
     reconnect();
   }
 
@@ -424,30 +479,38 @@ void loop() {
   lampLoop();
 }
 
-void lampLoop() {
-  if (flash) {
-    if (startFlash) {
+void lampLoop()
+{
+  if (flash)
+  {
+    if (startFlash)
+    {
       startFlash = false;
       flashStartTime = millis();
     }
 
-    if ((millis() - flashStartTime) <= flashLength) {
-      if ((millis() - flashStartTime) % 1000 <= 500) {
+    if ((millis() - flashStartTime) <= flashLength)
+    {
+      if ((millis() - flashStartTime) % 1000 <= 500)
+      {
         setColor(flashRed, flashGreen, flashBlue, flashWhite);
       }
-      else {
+      else
+      {
         setColor(0, 0, 0, 0);
         // If you'd prefer the flashing to happen "on top of"
         // the current color, uncomment the next line.
         // setColor(realRed, realGreen, realBlue, realWhite);
       }
     }
-    else {
+    else
+    {
       flash = false;
       setColor(realRed, realGreen, realBlue, realWhite);
     }
   }
-  else if (rgb && colorfade && !inFade) {
+  else if (rgb && colorfade && !inFade)
+  {
     realRed = map(colors[currentColor][0], 0, 255, 0, brightness);
     realGreen = map(colors[currentColor][1], 0, 255, 0, brightness);
     realBlue = map(colors[currentColor][2], 0, 255, 0, brightness);
@@ -456,9 +519,11 @@ void lampLoop() {
     startFade = true;
   }
 
-  if (startFade) {
+  if (startFade)
+  {
     // If we don't want to fade, skip it.
-    if (transitionTime == 0) {
+    if (transitionTime == 0)
+    {
       setColor(realRed, realGreen, realBlue, realWhite);
 
       redVal = realRed;
@@ -468,7 +533,8 @@ void lampLoop() {
 
       startFade = false;
     }
-    else {
+    else
+    {
       loopCount = 0;
       stepR = calculateStep(redVal, realRed);
       stepG = calculateStep(grnVal, realGreen);
@@ -479,11 +545,14 @@ void lampLoop() {
     }
   }
 
-  if (inFade) {
+  if (inFade)
+  {
     startFade = false;
     unsigned long now = millis();
-    if (now - lastLoop > transitionTime) {
-      if (loopCount <= 1020) {
+    if (now - lastLoop > transitionTime)
+    {
+      if (loopCount <= 1020)
+      {
         lastLoop = now;
 
         redVal = calculateVal(stepR, redVal, loopCount);
@@ -497,7 +566,8 @@ void lampLoop() {
         Serial.println(loopCount);
         loopCount++;
       }
-      else {
+      else
+      {
         inFade = false;
       }
     }
@@ -533,13 +603,15 @@ void lampLoop() {
 * and then divides that gap by 1020 to determine the size of the step
 * between adjustments in the value.
 */
-int calculateStep(int prevValue, int endValue) {
-    int step = endValue - prevValue; // What's the overall gap?
-    if (step) {                      // If its non-zero,
-        step = 1020/step;            //   divide by 1020
-    }
+int calculateStep(int prevValue, int endValue)
+{
+  int step = endValue - prevValue; // What's the overall gap?
+  if (step)
+  {                     // If its non-zero,
+    step = 1020 / step; //   divide by 1020
+  }
 
-    return step;
+  return step;
 }
 
 /* The next function is calculateVal. When the loop value, i,
@@ -547,23 +619,29 @@ int calculateStep(int prevValue, int endValue) {
 *  colors, it increases or decreases the value of that color by 1.
 *  (R, G, and B are each calculated separately.)
 */
-int calculateVal(int step, int val, int i) {
-    if ((step) && i % step == 0) { // If step is non-zero and its time to change a value,
-        if (step > 0) {              //   increment the value if step is positive...
-            val += 1;
-        }
-        else if (step < 0) {         //   ...or decrement it if step is negative
-            val -= 1;
-        }
+int calculateVal(int step, int val, int i)
+{
+  if ((step) && i % step == 0)
+  { // If step is non-zero and its time to change a value,
+    if (step > 0)
+    { //   increment the value if step is positive...
+      val += 1;
     }
+    else if (step < 0)
+    { //   ...or decrement it if step is negative
+      val -= 1;
+    }
+  }
 
-    // Defensive driving: make sure val stays in the range 0-255
-    if (val > 255) {
-        val = 255;
-    }
-    else if (val < 0) {
-        val = 0;
-    }
+  // Defensive driving: make sure val stays in the range 0-255
+  if (val > 255)
+  {
+    val = 255;
+  }
+  else if (val < 0)
+  {
+    val = 0;
+  }
 
-    return val;
+  return val;
 }
