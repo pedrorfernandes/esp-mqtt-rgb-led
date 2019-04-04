@@ -6,7 +6,8 @@
  */
 
 // Leave this here. These are the choices for CONFIG_STRIP below.
-enum strip {
+enum strip
+{
   BRIGHTNESS, // only one color/only white
   RGB,        // RGB LEDs
   RGBW        // RGB LEDs with an extra white LED per LED
@@ -19,9 +20,9 @@ enum strip {
 // In case of RGB(W): red, green, blue(, white) is used
 // All values need to be present, if they are not needed, set to -1,
 // it will be ignored.
-#define CONFIG_PIN_RED   0  // For RGB(W)
+#define CONFIG_PIN_RED 0    // For RGB(W)
 #define CONFIG_PIN_GREEN 2  // For RGB(W)
-#define CONFIG_PIN_BLUE  3  // For RGB(W)
+#define CONFIG_PIN_BLUE 3   // For RGB(W)
 #define CONFIG_PIN_WHITE -1 // For BRIGHTNESS and RGBW
 
 // WiFi
@@ -63,4 +64,4 @@ enum strip {
 #define CONFIG_LED_BUILTIN_MODE -1
 
 // Enables Serial and print statements
-#define CONFIG_DEBUG false
+#define CONFIG_DEBUG true
