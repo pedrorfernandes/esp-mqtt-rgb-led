@@ -38,14 +38,6 @@
 #define lcCS 10   // SPI slave select pin
 #endif
 
-Lamp lamps[] = {
-    Lamp(0, (unsigned char[]){0xE7, 0x52, 0xD3, 0x52, 0x99, 0x28, 0x8F, 0xB4, 0x11}, "home/rgb1"),
-    Lamp(1, (unsigned char[]){0x43, 0xB7, 0xBA, 0x14, 0x99, 0x28, 0x8F, 0xB4, 0x11}, "home/rgb2"),
-};
-
-unsigned char lamp1[9] = {0xE7, 0x52, 0xD3, 0x52, 0x99, 0x28, 0x8F, 0xB4, 0x11}; // branca
-unsigned char lamp2[9] = {0x43, 0xB7, 0xBA, 0x14, 0x99, 0x28, 0x8F, 0xB4, 0x11}; // preta
-
 const bool rgb = (CONFIG_STRIP == RGB) || (CONFIG_STRIP == RGBW);
 const bool includeWhite = (CONFIG_STRIP == BRIGHTNESS) || (CONFIG_STRIP == RGBW);
 
@@ -65,6 +57,10 @@ const int NUM_COLORS = 7;
 WiFiClient espClient;
 PubSubClient client(espClient);
 LivingColors livcol(lcCS, lcSCK, lcMOSI, lcMISO);
+Lamp lamps[] = {
+    Lamp(0, (unsigned char[]){0xE7, 0x52, 0xD3, 0x52, 0x99, 0x28, 0x8F, 0xB4, 0x11}, "home/rgb1", "home/rgb1/set"),
+    Lamp(1, (unsigned char[]){0x43, 0xB7, 0xBA, 0x14, 0x99, 0x28, 0x8F, 0xB4, 0x11}, "home/rgb2", "home/rgb2/set"),
+};
 
 void setup()
 {
@@ -110,6 +106,17 @@ void setup_wifi()
   Serial.println(WiFi.localIP());
 }
 
+Lamp &getLamp(char *topicSet)
+{
+  for (Lamp &lamp : lamps)
+  {
+    if (strcmp(lamp.topicSet, topicSet) == 0)
+    {
+      return lamp;
+    }
+  }
+}
+
 /*
   SAMPLE PAYLOAD (BRIGHTNESS):
     {
@@ -134,24 +141,12 @@ void setup_wifi()
       "effect": "colorfade_fast"
     }
   */
-
-Lamp &getLamp(char *topic)
-{
-  for (Lamp &lamp : lamps)
-  {
-    if (strcmp(lamp.topic, topic) == 0)
-    {
-      return lamp;
-    }
-  }
-}
-
-void callback(char *topic, byte *payload, unsigned int length)
+void callback(char *topicSet, byte *payload, unsigned int length)
 {
   Serial.print("Message arrived [");
-  Serial.print(topic);
+  Serial.print(topicSet);
   Serial.print("]\n");
-  Lamp &lamp = getLamp(topic);
+  Lamp &lamp = getLamp(topicSet);
 
   char message[length + 1];
   for (int i = 0; i < length; i++)
@@ -185,7 +180,6 @@ void callback(char *topic, byte *payload, unsigned int length)
   lamp.startFade = true;
   lamp.inFade = false; // Kill the current fade
 
-  Serial.print(lamp.index); Serial.print(" "); Serial.println(lamp.startFade);
   sendState(lamp);
 }
 
@@ -363,7 +357,7 @@ void sendState(Lamp &lamp)
   char buffer[root.measureLength() + 1];
   root.printTo(buffer, sizeof(buffer));
 
-  client.publish(CONFIG_MQTT_TOPIC_STATE, buffer, true);
+  client.publish(lamp.topic, buffer, true);
   Serial.println(buffer);
 }
 
@@ -377,7 +371,10 @@ void reconnect()
     if (client.connect(CONFIG_MQTT_CLIENT_ID, CONFIG_MQTT_USER, CONFIG_MQTT_PASS))
     {
       Serial.println("connected");
-      client.subscribe(CONFIG_MQTT_TOPIC_SET);
+      for (Lamp &lamp : lamps)
+      {
+        client.subscribe(lamp.topicSet);
+      }
     }
     else
     {
@@ -404,18 +401,15 @@ void setColor(Lamp &lamp, int inR, int inG, int inB, int inW)
   {
     if (inR == 0 && inG == 0 && inB == 0)
     {
-      Serial.println("livcol.turnLampOff");
       livcol.turnLampOff(lamp.index);
       lamp.realStateOn = false;
     }
     else if (lamp.realStateOn)
     {
-      Serial.println("livcol.setLampColourRGB");
       livcol.setLampColourRGB(lamp.index, inR, inG, inB);
     }
     else
     {
-      Serial.println("livcol.turnLampOnRGB");
       livcol.turnLampOnRGB(lamp.index, inR, inG, inB);
       lamp.realStateOn = true;
     }
@@ -510,8 +504,6 @@ void lampLoop(Lamp &lamp)
 
   if (lamp.startFade)
   {
-    Serial.print(lamp.index); Serial.print(" "); Serial.println(lamp.startFade);
-
     // If we don't want to fade, skip it.
     if (lamp.transitionTime == 0)
     {

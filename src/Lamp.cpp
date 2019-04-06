@@ -1,10 +1,11 @@
 #include "Lamp.h"
 
-Lamp::Lamp(unsigned char index, unsigned char *address, const char *topic)
+Lamp::Lamp(unsigned char index, unsigned char *address, const char *topic, const char *topicSet)
 {
     this->index = index;
     this->address = address;
     this->topic = topic;
+    this->topicSet = topicSet;
 
     this->red = 255;
     this->green = 255;
