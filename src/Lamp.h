@@ -29,15 +29,19 @@ public:
   int transitionTime;
   bool inFade;
   int loopCount;
-  int stepR;
-  int stepG;
-  int stepB;
-  int stepW;
+  float stepR;
+  float stepG;
+  float stepB;
+  float stepW;
   int redVal;
   int grnVal;
   int bluVal;
   int whtVal;
-
+  int redValFadeStart;
+  int grnValFadeStart;
+  int bluValFadeStart;
+  int whtValFadeStart;
+  
   // Globals for flash
   bool flash;
   bool startFlash;

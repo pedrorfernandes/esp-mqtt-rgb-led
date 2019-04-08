@@ -42,6 +42,7 @@ const bool rgb = (CONFIG_STRIP == RGB) || (CONFIG_STRIP == RGBW);
 const bool includeWhite = (CONFIG_STRIP == BRIGHTNESS) || (CONFIG_STRIP == RGBW);
 
 const int BUFFER_SIZE = JSON_OBJECT_SIZE(20);
+const int COLOR_SET_DELAY_MICRO_SECONDS = 2000;
 
 // {red, grn, blu, wht}
 const byte COLORS[][4] = {
@@ -61,6 +62,7 @@ Lamp lamps[] = {
     Lamp(0, (unsigned char[]){0xE7, 0x52, 0xD3, 0x52, 0x99, 0x28, 0x8F, 0xB4, 0x11}, "home/rgb1", "home/rgb1/set"),
     Lamp(1, (unsigned char[]){0x43, 0xB7, 0xBA, 0x14, 0x99, 0x28, 0x8F, 0xB4, 0x11}, "home/rgb2", "home/rgb2/set"),
 };
+const int NUMBER_OF_LAMPS = sizeof(lamps) / sizeof(Lamp);
 
 void setup()
 {
@@ -78,6 +80,7 @@ void setup()
     livcol.addLamp(lamp.address);
   }
 
+  livcol.turnLampOnRGB(1, 0, 255, 255);
   setup_wifi();
   client.setServer(CONFIG_MQTT_HOST, CONFIG_MQTT_PORT);
   client.setCallback(callback);
@@ -389,62 +392,39 @@ void reconnect()
 
 void setColor(Lamp &lamp, int inR, int inG, int inB, int inW)
 {
-  if (CONFIG_INVERT_LED_LOGIC)
+  if (inR == 0 && inG == 0 && inB == 0 && lamp.realStateOn)
   {
-    inR = (255 - inR);
-    inG = (255 - inG);
-    inB = (255 - inB);
-    inW = (255 - inW);
+    delayMicroseconds(COLOR_SET_DELAY_MICRO_SECONDS * 5);
+    Serial.println("LAMP OFF");
+    livcol.turnLampOff(lamp.index);
+    lamp.realStateOn = false;
   }
 
-  if (rgb)
+  if ((inR > 0 || inG > 0 || inB > 0) && lamp.realStateOn)
   {
-    if (inR == 0 && inG == 0 && inB == 0)
-    {
-      livcol.turnLampOff(lamp.index);
-      lamp.realStateOn = false;
-    }
-    else if (lamp.realStateOn)
-    {
-      livcol.setLampColourRGB(lamp.index, inR, inG, inB);
-    }
-    else
-    {
-      livcol.turnLampOnRGB(lamp.index, inR, inG, inB);
-      lamp.realStateOn = true;
-    }
+    Serial.print("R:");
+    Serial.print(inR);
+    Serial.print(" G:");
+    Serial.print(inG);
+    Serial.print(" B:");
+    Serial.print(inB);
+    Serial.print(" ");
+    livcol.setLampColourRGB(lamp.index, inR, inG, inB);
   }
 
-  if (includeWhite)
+  if ((inR > 0 || inG > 0 || inB > 0) && !lamp.realStateOn)
   {
-    // analogWrite(CONFIG_PIN_WHITE, inW);
+    Serial.print("LAMP ON r:");
+    Serial.print(inR);
+    Serial.print(" g: ");
+    Serial.print(inG);
+    Serial.print(" b: ");
+    Serial.println(inB);
+    livcol.turnLampOnRGB(lamp.index, inR, inG, inB);
+    lamp.realStateOn = true;
   }
 
-  if (CONFIG_DEBUG)
-  {
-    Serial.print("Setting LEDs: {");
-    if (rgb)
-    {
-      Serial.print("r: ");
-      Serial.print(inR);
-      Serial.print(" , g: ");
-      Serial.print(inG);
-      Serial.print(" , b: ");
-      Serial.print(inB);
-    }
-
-    if (includeWhite)
-    {
-      if (rgb)
-      {
-        Serial.print(", ");
-      }
-      Serial.print("w: ");
-      Serial.print(inW);
-    }
-
-    Serial.println("}");
-  }
+  delayMicroseconds(COLOR_SET_DELAY_MICRO_SECONDS);
 }
 
 void loop()
@@ -464,6 +444,8 @@ void loop()
 
 void lampLoop(Lamp &lamp)
 {
+  const int STEPS = (lamp.transitionTime / (COLOR_SET_DELAY_MICRO_SECONDS / 1000 * NUMBER_OF_LAMPS));
+  
   if (lamp.flash)
   {
     if (lamp.startFlash)
@@ -519,112 +501,74 @@ void lampLoop(Lamp &lamp)
     else
     {
       lamp.loopCount = 0;
-      lamp.stepR = calculateStep(lamp.redVal, lamp.realRed);
-      lamp.stepG = calculateStep(lamp.grnVal, lamp.realGreen);
-      lamp.stepB = calculateStep(lamp.bluVal, lamp.realBlue);
-      lamp.stepW = calculateStep(lamp.whtVal, lamp.realWhite);
-
+      lamp.stepR = calculateStep(lamp.redVal, lamp.realRed, STEPS);
+      lamp.stepG = calculateStep(lamp.grnVal, lamp.realGreen, STEPS);
+      lamp.stepB = calculateStep(lamp.bluVal, lamp.realBlue, STEPS);
+      lamp.stepW = calculateStep(lamp.whtVal, lamp.realWhite, STEPS);
+      lamp.redValFadeStart = lamp.redVal;
+      lamp.grnValFadeStart = lamp.grnVal;
+      lamp.bluValFadeStart = lamp.bluVal;
+      lamp.whtValFadeStart = lamp.whtVal;
       lamp.inFade = true;
+      lamp.lastLoop = millis();
     }
   }
 
   if (lamp.inFade)
   {
     lamp.startFade = false;
-    unsigned long now = millis();
-    if (now - lamp.lastLoop > lamp.transitionTime)
+    //unsigned long now = millis();
+
+    if (lamp.loopCount <= STEPS)
     {
-      if (lamp.loopCount <= 1020)
-      {
-        lamp.lastLoop = now;
+      //lamp.lastLoop = now;
 
-        lamp.redVal = calculateVal(lamp.stepR, lamp.redVal, lamp.loopCount);
-        lamp.grnVal = calculateVal(lamp.stepG, lamp.grnVal, lamp.loopCount);
-        lamp.bluVal = calculateVal(lamp.stepB, lamp.bluVal, lamp.loopCount);
-        lamp.whtVal = calculateVal(lamp.stepW, lamp.whtVal, lamp.loopCount);
-
-        setColor(lamp, lamp.redVal, lamp.grnVal, lamp.bluVal, lamp.whtVal); // Write current values to LED pins
-
-        Serial.print("Loop count: ");
-        Serial.println(lamp.loopCount);
-        lamp.loopCount++;
-      }
-      else
-      {
-        lamp.inFade = false;
-      }
+      lamp.redVal = calculateVal(lamp.stepR, lamp.redValFadeStart, lamp.loopCount);
+      lamp.grnVal = calculateVal(lamp.stepG, lamp.grnValFadeStart, lamp.loopCount);
+      lamp.bluVal = calculateVal(lamp.stepB, lamp.bluValFadeStart, lamp.loopCount);
+      lamp.whtVal = calculateVal(lamp.stepW, lamp.whtValFadeStart, lamp.loopCount);
+      setColor(lamp, lamp.redVal, lamp.grnVal, lamp.bluVal, lamp.whtVal);
+      lamp.loopCount++;
+    }
+    else
+    {
+      setColor(lamp, lamp.realRed, lamp.realGreen, lamp.realBlue, lamp.realWhite);
+      lamp.redVal = lamp.realRed;
+      lamp.grnVal = lamp.realGreen;
+      lamp.bluVal = lamp.realBlue;
+      lamp.whtVal = lamp.realWhite;
+      Serial.print("Loop complete: r: ");
+      Serial.print(lamp.redVal);
+      Serial.print(", g: ");
+      Serial.print(lamp.grnVal);
+      Serial.print(", b: ");
+      Serial.print(lamp.bluVal);
+      Serial.print(" in ");
+      Serial.print(millis() - lamp.lastLoop);
+      Serial.println("ms");
+      lamp.inFade = false;
     }
   }
 }
 
-// From https://www.arduino.cc/en/Tutorial/ColorCrossfader
-/* BELOW THIS LINE IS THE MATH -- YOU SHOULDN'T NEED TO CHANGE THIS FOR THE BASICS
-*
-* The program works like this:
-* Imagine a crossfade that moves the red LED from 0-10,
-*   the green from 0-5, and the blue from 10 to 7, in
-*   ten steps.
-*   We'd want to count the 10 steps and increase or
-*   decrease color values in evenly stepped increments.
-*   Imagine a + indicates raising a value by 1, and a -
-*   equals lowering it. Our 10 step fade would look like:
-*
-*   1 2 3 4 5 6 7 8 9 10
-* R + + + + + + + + + +
-* G   +   +   +   +   +
-* B     -     -     -
-*
-* The red rises from 0 to 10 in ten steps, the green from
-* 0-5 in 5 steps, and the blue falls from 10 to 7 in three steps.
-*
-* In the real program, the color percentages are converted to
-* 0-255 values, and there are 1020 steps (255*4).
-*
-* To figure out how big a step there should be between one up- or
-* down-tick of one of the LED values, we call calculateStep(),
-* which calculates the absolute gap between the start and end values,
-* and then divides that gap by 1020 to determine the size of the step
-* between adjustments in the value.
-*/
-int calculateStep(int prevValue, int endValue)
+double calculateStep(int prevValue, int endValue, int steps)
 {
-  int step = endValue - prevValue; // What's the overall gap?
-  if (step)
-  {                     // If its non-zero,
-    step = 1020 / step; //   divide by 1020
-  }
-
-  return step;
+  return (float)(endValue - prevValue) / (float)steps;
 }
 
-/* The next function is calculateVal. When the loop value, i,
-*  reaches the step size appropriate for one of the
-*  colors, it increases or decreases the value of that color by 1.
-*  (R, G, and B are each calculated separately.)
-*/
-int calculateVal(int step, int val, int i)
+int calculateVal(float step, int initialVal, int i)
 {
-  if ((step) && i % step == 0)
-  { // If step is non-zero and its time to change a value,
-    if (step > 0)
-    { //   increment the value if step is positive...
-      val += 1;
-    }
-    else if (step < 0)
-    { //   ...or decrement it if step is negative
-      val -= 1;
-    }
-  }
+  int newVal = initialVal + step * i;
 
   // Defensive driving: make sure val stays in the range 0-255
-  if (val > 255)
+  if (newVal > 255)
   {
-    val = 255;
+    newVal = 255;
   }
-  else if (val < 0)
+  else if (newVal < 0)
   {
-    val = 0;
+    newVal = 0;
   }
 
-  return val;
+  return newVal;
 }
